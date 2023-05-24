@@ -24,8 +24,10 @@ class RedisContainer(Generic[T]):
     def _parse_value(self, value: StrBytes) -> Optional[T]:
         if not value:
             return None
-        if BaseModel in self.model.__bases__:
+        if issubclass(self.model, BaseModel):
             return self.model.parse_raw(value)
+        if not issubclass(self.model, (str, bytes)):
+            raise RuntimeError(f'Invalid model type: {self.model}')
         return value
 
     def _serialize_value(self, value: T) -> StrBytes:
@@ -34,7 +36,7 @@ class RedisContainer(Generic[T]):
         return value
 
 
-class RKey(RedisContainer[T]):
+class RKey(Generic[T], RedisContainer[T]):
     def get(self) -> Optional[T]:
         return self._parse_value(self.red.get(self.key))
 
@@ -43,7 +45,7 @@ class RKey(RedisContainer[T]):
         self.red.set(self.key, serialized_value)
 
 
-class RList(RedisContainer[T]):
+class RList(Generic[T], RedisContainer[T]):
     def getrange(self, start: int, end: int) -> List[T]:
         return [
             self._parse_value(v) for v in self.red.lrange(self.key, start, end)
@@ -53,8 +55,11 @@ class RList(RedisContainer[T]):
         serialized_value = self._serialize_value(value)
         self.red.rpush(self.key, serialized_value)
 
+    def bpop(self, timeout=0) -> Optional[T]:
+        return self._parse_value(self.red.blpop(self.key, timeout))
 
-class RSet(RedisContainer[T]):
+
+class RSet(Generic[T], RedisContainer[T]):
     def members(self) -> list[T]:
         return [self._parse_value(v) for v in self.red.smembers(self.key)]
 
@@ -63,7 +68,7 @@ class RSet(RedisContainer[T]):
         self.red.sadd(self.key, serialized_value)
 
 
-class RSortedSet(RedisContainer[T]):
+class RSortedSet(Generic[T], RedisContainer[T]):
     def getrange(self, start: int, end: int) -> List[T]:
         return [
             self._parse_value(v) for v in self.red.zrange(self.key, start, end)
@@ -74,7 +79,7 @@ class RSortedSet(RedisContainer[T]):
         self.red.zadd(self.key, {serialized_value: score})
 
 
-class RHash(RedisContainer[T]):
+class RHash(Generic[T], RedisContainer[T]):
     def getall(self) -> Dict[StrBytes, T]:
         raw_dict = self.red.hgetall(self.key)
         return {
