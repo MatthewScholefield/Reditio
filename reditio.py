@@ -56,7 +56,7 @@ class RList(Generic[T], RedisContainer[T]):
         self.red.rpush(self.key, serialized_value)
 
     def bpop(self, timeout=0) -> Optional[T]:
-        return self._parse_value(self.red.blpop(self.key, timeout))
+        return self._parse_value(self.red.blpop(self.key, timeout)[1])
 
 
 class RSet(Generic[T], RedisContainer[T]):
