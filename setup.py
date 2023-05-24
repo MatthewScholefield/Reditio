@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='reditio',
-    version='0.1.0',
+    version='0.2.0',
     description='Simple typed Python interface to Redis',
     url='https://github.com/MatthewScholefield/reditio',
     author='Matthew D. Scholefield',
