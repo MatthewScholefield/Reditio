@@ -1,8 +1,9 @@
 from redis import Redis
 from pydantic import BaseModel, StrBytes
-from typing import Optional, Type, List, Dict, TypeVar, Generic
+from typing import Any, Optional, Type, List, Dict, TypeVar, Generic
 
 T = TypeVar('T', BaseModel, str)
+ContainerSubtype = TypeVar('ContainerSubtype', bound='RedisContainer')
 
 
 class RedisContainer(Generic[T]):
@@ -15,6 +16,9 @@ class RedisContainer(Generic[T]):
         self.key = key
         self.model = model
         self.red = redis
+
+    def to_template(self: ContainerSubtype) -> 'RedisContainerTemplate[ContainerSubtype]':
+        return RedisContainerTemplate(self.key, self.model, self.red, self.__class__)
 
     def _parse_key(self, value: StrBytes) -> str:
         if isinstance(value, bytes):
@@ -45,6 +49,25 @@ class RKey(Generic[T], RedisContainer[T]):
     def set(self, value: T):
         serialized_value = self._serialize_value(value)
         self.red.set(self.key, serialized_value)
+
+
+class RedisContainerTemplate(Generic[ContainerSubtype]):
+    def __init__(
+        self,
+        key_template: str,
+        model: Type[T],
+        redis: Redis,
+        container_type: Type[ContainerSubtype]
+    ):
+        super().__init__()
+        self.key_template = key_template
+        self.model = model
+        self.redis = redis
+        self.container_type = container_type
+
+    def __call__(self, *args: Any, **kwargs: Any) -> ContainerSubtype:
+        key = self.key_template.format(*args, **kwargs)
+        return self.container_type(key, self.model, self.redis)
 
 
 class RList(Generic[T], RedisContainer[T]):

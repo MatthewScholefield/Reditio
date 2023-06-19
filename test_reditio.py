@@ -1,6 +1,6 @@
 import pytest
 import redis
-from reditio import Reditio
+from reditio import RHash, RedisContainerTemplate, Reditio
 from pydantic import BaseModel
 from typing import Dict, List, Set
 
@@ -75,3 +75,12 @@ def test_rhash(reditio: Reditio):
     assert people['jane'].name == 'Jane'
     assert people['jane'].age == 28
     assert rhash.get('john') == people['john']
+
+
+def test_template_rhash(reditio: Reditio):
+    rhashes: RedisContainerTemplate[RHash[Person]] = reditio.hash('test_hash:{}', Person).to_template()
+    rhash = rhashes('123')
+    rhash.set('john', Person(name='John', age=30))
+    rhash.set('jane', Person(name='Jane', age=28))
+    assert len(rhashes('123').getall()) == 2
+    assert len(rhashes('124').getall()) == 0
