@@ -28,6 +28,8 @@ class RedisContainer(Generic[T]):
             return self.model.parse_raw(value)
         if not issubclass(self.model, (str, bytes)):
             raise RuntimeError(f'Invalid model type: {self.model}')
+        if isinstance(value, bytes):
+            return value.decode()
         return value
 
     def _serialize_value(self, value: T) -> StrBytes:
