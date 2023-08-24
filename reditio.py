@@ -1,9 +1,11 @@
 from redis import Redis
-from pydantic import BaseModel, StrBytes
+from pydantic import BaseModel
 from typing import Any, Optional, Type, List, Dict, TypeVar, Generic
 
 T = TypeVar('T', BaseModel, str)
 ContainerSubtype = TypeVar('ContainerSubtype', bound='RedisContainer')
+
+StrBytes = str | bytes
 
 
 class RedisContainer(Generic[T]):
@@ -17,7 +19,9 @@ class RedisContainer(Generic[T]):
         self.model = model
         self.red = redis
 
-    def to_template(self: ContainerSubtype) -> 'RedisContainerTemplate[ContainerSubtype]':
+    def to_template(
+        self: ContainerSubtype,
+    ) -> 'RedisContainerTemplate[ContainerSubtype]':
         return RedisContainerTemplate(self.key, self.model, self.red, self.__class__)
 
     def _parse_key(self, value: StrBytes) -> str:
@@ -57,7 +61,7 @@ class RedisContainerTemplate(Generic[ContainerSubtype]):
         key_template: str,
         model: Type[T],
         redis: Redis,
-        container_type: Type[ContainerSubtype]
+        container_type: Type[ContainerSubtype],
     ):
         super().__init__()
         self.key_template = key_template
@@ -72,9 +76,7 @@ class RedisContainerTemplate(Generic[ContainerSubtype]):
 
 class RList(Generic[T], RedisContainer[T]):
     def getrange(self, start: int, end: int) -> List[T]:
-        return [
-            self._parse_value(v) for v in self.red.lrange(self.key, start, end)
-        ]
+        return [self._parse_value(v) for v in self.red.lrange(self.key, start, end)]
 
     def append(self, value: T):
         serialized_value = self._serialize_value(value)
@@ -95,9 +97,7 @@ class RSet(Generic[T], RedisContainer[T]):
 
 class RSortedSet(Generic[T], RedisContainer[T]):
     def getrange(self, start: int, end: int) -> List[T]:
-        return [
-            self._parse_value(v) for v in self.red.zrange(self.key, start, end)
-        ]
+        return [self._parse_value(v) for v in self.red.zrange(self.key, start, end)]
 
     def add(self, value: T, score: float):
         serialized_value = self._serialize_value(value)
@@ -107,10 +107,7 @@ class RSortedSet(Generic[T], RedisContainer[T]):
 class RHash(Generic[T], RedisContainer[T]):
     def getall(self) -> Dict[StrBytes, T]:
         raw_dict = self.red.hgetall(self.key)
-        return {
-            self._parse_key(k): self._parse_value(v)
-            for k, v in raw_dict.items()
-        }
+        return {self._parse_key(k): self._parse_value(v) for k, v in raw_dict.items()}
 
     def get(self, field: StrBytes) -> Optional[T]:
         return self._parse_value(self.red.hget(self.key, field))
